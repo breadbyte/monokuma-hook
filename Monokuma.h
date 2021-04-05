@@ -1,15 +1,48 @@
 #ifndef MONOKUMAHOOK_MONOKUMA_H
 #define MONOKUMAHOOK_MONOKUMA_H
-#include "d3d9.h"
-#include "d3dx9.h"
 
-class D3DDATA {
-public:
-    D3DDATA() = default;
-    ~D3DDATA() = default;
-    inline static LPDIRECT3DDEVICE9EX *pDevice = nullptr;
-    inline static LPDIRECT3D9EX *d3d_dev = nullptr;
-    inline static ID3DXFont *font = nullptr;
+#include <vector>
+#include <mutex>
+
+struct ScreenPrintCommand {
+    int xPos;
+    int yPos;
+    const char* text;
 };
 
+class ScreenPrintCommandBuffer {
+
+private:
+    std::vector<ScreenPrintCommand> pCommandVector;
+    std::vector<ScreenPrintCommand> lockBuffer;
+    std::mutex lock;
+
+public:
+    void push(ScreenPrintCommand screenPrintCommand){
+        if (lock.try_lock()) {
+            pCommandVector.push_back(screenPrintCommand);
+            /* pCommandVector.insert(
+                    pCommandVector.end(),
+                    lockBuffer.begin(),
+                    lockBuffer.end()
+                    );
+            */
+            lockBuffer.clear();
+            lock.unlock();
+        }
+        else {
+            // drop command
+            lockBuffer.push_back(screenPrintCommand);
+            printf("Dropped a print command! Buffer:%i pCmdVt:%i\n",lockBuffer.size() ,pCommandVector.size());
+        }
+    }
+
+    std::vector<ScreenPrintCommand> pull() {
+        lock.lock();
+        std::vector<ScreenPrintCommand> retval = pCommandVector;
+        pCommandVector.clear();
+        lock.unlock();
+        return retval;
+    }
+};
 #endif //MONOKUMAHOOK_MONOKUMA_H
