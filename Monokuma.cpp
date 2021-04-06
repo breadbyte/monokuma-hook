@@ -55,10 +55,16 @@ void printerr(const char* pattern, ...) {
 }
 void println_screen(int x, int y, const char* buffer) {
     //std::cout << std::endl;
-    //auto str = std::string(buffer);
+    auto str = std::string(buffer);
 
-    auto scr = ScreenPrintCommand{x, y, buffer};
+    //auto alloc = (char*)malloc(strlen(buffer)+1);
+    //auto copy = strcpy_s(alloc, strlen(buffer), buffer);
+
+    //assert(copy == 0);
+
+    auto scr = ScreenPrintCommand{x, y, str};
     cmdBuf.push(scr);
+
     //printf("Command sent: [%i:%i] %s\n", scr.xPos, scr.yPos, scr.text);
 
     //printf("[X: %i] [Y: %i]  %s", x, y, buffer); // temp until we can get imgui/d3d screen write working
@@ -121,7 +127,7 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice)
     auto cmds = cmdBuf.pull();
     for (auto & cmd : cmds) {
         //printf("Drawing [%i:%i] %s\n", cmd.xPos, cmd.yPos, cmd.text);
-        bgDrw->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text);
+        bgDrw->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
     }
     //fgDrw->AddText(ImVec2(500, 400), IM_COL32(0,0,150,1), "Hello ImGui Fground!");
     //wndDrw->AddText(ImVec2(500, 500), IM_COL32(0,0,150,1), "Hello ImGui Window!");

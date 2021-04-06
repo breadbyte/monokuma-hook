@@ -7,7 +7,7 @@
 struct ScreenPrintCommand {
     int xPos;
     int yPos;
-    const char* text;
+    std::string text;
 };
 
 class ScreenPrintCommandBuffer {
