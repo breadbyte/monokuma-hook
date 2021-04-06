@@ -57,32 +57,10 @@ void printerr(const char* pattern, ...) {
     std::cout << std::endl;
 }
 void println_screen(int x, int y, const char* buffer) {
-    //std::cout << std::endl;
     auto str = std::string(buffer);
-
-    //auto alloc = (char*)malloc(strlen(buffer)+1);
-    //auto copy = strcpy_s(alloc, strlen(buffer), buffer);
-
-    //assert(copy == 0);
 
     auto scr = ScreenPrintCommand{x, y, str};
     cmdBuf.push(scr);
-
-    //printf("Command sent: [%i:%i] %s\n", scr.xPos, scr.yPos, scr.text);
-
-    //printf("[X: %i] [Y: %i]  %s", x, y, buffer); // temp until we can get imgui/d3d screen write working
-    //ImGui_ImplDX9_NewFrame();
-    //ImGui_ImplWin32_NewFrame();
-
-    //auto ovlDrw = ImGui::GetForegroundDrawList();
-    //ovlDrw->AddLine(ImVec2(x, y), ImVec2(0,0), IM_COL32(255,0,0,1));
-    //ovlDrw->AddText(ImVec2((float)x, (float)y), IM_COL32(0,0,255,255), "str.c_str()");
-    //ovlDrw->AddText(ImVec2(x,y), IM_COL32(0,0,255,255), str.c_str());
-
-    //auto globalDrawlist = ImGui::GetOverlayDrawList();
-    //globalDrawlist->AddText(ImVec2(x, y), IM_COL32(0,0,150,1), str.c_str());
-    //ImGui::Render();
-    //ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 }
 
 typedef void (*oConsoleStdoutPrintFunc)(const char* pattern, ...);
@@ -160,24 +138,13 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
         ImGui::End();
     } else {
         // Only draw the cursor if imgui is called.
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
         ImGui::GetIO().MouseDrawCursor = false;
     }
 
     if (isWantDebugMenu) {
-
-        //ImGui::ShowDemoWindow();
-        //ImGui::GetIO().MouseDrawCursor = true;
         ImGui::Begin("Debug Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize);
-        //ImGui::SetWindowPos(ImVec2(0, 0));
-        //ImGui::ShowDemoWindow();
-        //ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-        //imguiDrawList = ImGui::GetForegroundDrawList();
-        //imguiDrawList->AddText(ImVec2(((int)0), ((int)0)), IM_COL32(0,0,255,255), "Hello ImGui screen draw!");
-        //auto globalDrawlist = ImGui::GetOverlayDrawList();
-        //auto wndDrw = ImGui::GetWindowDrawList();
-        //auto fgDrw = ImGui::GetForegroundDrawList();
-        //auto bgDrw = ImGui::GetBackgroundDrawList();
-        auto test = ImGui::GetWindowDrawList();
+
         auto wndPos = ImGui::GetWindowPos();
         auto cmds = cmdBuf.pull();
         for (auto &cmd : cmds) {
@@ -186,14 +153,9 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + cmd.xPos + 5, wndPos.y + cmd.yPos + 20));
 
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", cmd.text.c_str());
-            //test->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
-            //printf("Drawing [%i:%i] %s\n", cmd.xPos, cmd.yPos, cmd.text);
-            //bgDrw->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
         }
         ImGui::End();
-
     }
-
 
     ImGui::EndFrame();
     ImGui::Render();
@@ -244,6 +206,7 @@ void Patch(int* dst, int* src, int size)
                 continue;
             debounce = true;
 
+            // Force Debug Menu Open (for development purposes)
             if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
                 forceOpen = !forceOpen;
                 enabled = forceOpen;
@@ -310,31 +273,6 @@ void Patch(int* dst, int* src, int size)
         isWantDebugMenu = enabled;
     }
 }
-[[noreturn]] VOID WINAPI ListenKeyPressAddrHelper(){
-    bool debounce = false;
-    while (true) {
-        // Listen for keypress. (the + key beside - in the number strip)
-        auto addrPrint = GetAsyncKeyState(VK_OEM_PLUS) & 0x8000;
-
-        if (addrPrint) {
-            if (debounce)
-                continue;
-
-            debounce = true;
-
-            std::cout << std::endl;
-            // Just a quick little reference guide for converting VA->TA and vice versa.
-            printf("\n[Monokuma] ((Base Addr + VA) - EXE Base) = Target Address\n");
-            printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
-            printf("[Monokuma] EXE base is %Xh\n", exeBase);
-            printf("[Monokuma] Addr for func stdoutPrintFunc is %Xh.\n", stdoutFuncAddr);
-            printf("[Monokuma] Addr for func screenPrintFunc is %Xh.\n", screenFuncAddr);
-        }
-        else {
-            debounce = false;
-        }
-    }
-}
 [[noreturn]] VOID WINAPI ListenKeyPressImguiOverlay(){
     bool debounce = false;
 
@@ -357,8 +295,7 @@ void Patch(int* dst, int* src, int size)
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
     if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
-        //oEndScene = (EndScene) ;
-        //oReset = (Reset) ;
+        // TODO: Reduce kiero minhook dependency by using detours instead
         //DetourAttach((void**)&oEndScene, hkEndScene);
         //DetourAttach(&(PVOID &) kiero::getMethodsTable()[42], hkEndScene);
         //DetourAttach(&(PVOID &) kiero::getMethodsTable()[16], hkReset);
@@ -393,17 +330,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
             printf("[Monokuma] EXE base is %Xh\n", exeBase);
             printf("[Monokuma] Addr for func stdoutPrintFunc is %Xh.\n", stdoutFuncAddr);
-            //printf("[Monokuma] Assuming base addr %X for func stderrPrintFunc.\n", (baseAddr + 0x0435B2) - exeBase);
             printf("[Monokuma] Addr for func screenPrintFunc is %Xh.\n", screenFuncAddr);
             DetourTransactionBegin();
             DetourUpdateThread(GetCurrentThread());
-            //DetourAttach(&(PVOID &) D3DCreate9ExReal, Direct3DCreate9ExTake);
             DetourAttach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourAttach(&(PVOID &) screenPrintFuncReal, println_screen);
-            //DetourAttach(&(PVOID &) Direct3DCreate9ExRealFuncA, Direct3DCreate9ExTakeParam);
-            //DetourAttach(&(PVOID &) d3d9createDeviceExFunc, CreateDeviceExTakeParam);
 
-            //DetourAttach(&(PVOID &) stderrPrintFuncReal, printerr); // Broken function, outputs garbage.
+            //DetourAttach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
 
             printf("[Monokuma] Detoured.\n");
@@ -415,11 +348,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourUpdateThread(GetCurrentThread());
             DetourDetach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourDetach(&(PVOID &) screenPrintFuncReal, println_screen);
-            //DetourDetach(&(PVOID &) D3DCreate9ExReal, Direct3DCreate9ExTake);
-            //DetourDetach(&(PVOID &) Direct3DCreate9ExRealFuncA, Direct3DCreate9ExTakeParam);
-            //DetourDetach(&(PVOID &) d3d9createDeviceExFunc, CreateDeviceExTakeParam);
 
-            //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // Broken function, outputs garbage.
+            //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
 
             printf("\n\n[Monokuma] Detour detached.\n");
