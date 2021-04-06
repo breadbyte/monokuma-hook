@@ -147,17 +147,20 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             _itoa_s(baseAddr, baseAddrStr, 16, 16);
 
             ImGui::Text("Calculate Virtual Address to Current Address");
-            ImGui::Text("((Base Address - Virtual Address) + EXE Base)");
+            ImGui::Text("((Virtual Address - Base Address) + EXE Base)");
             ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::InputText("Enter your Addr here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
 
-            _itoa_s(((unsigned int) (baseAddr - strtol(inputBuffer, NULL, 16) + exeBase)), finalAddr, 16, 16);
+            _itoa_s(((unsigned int) ((strtol(inputBuffer, NULL, 16) - baseAddr)  + exeBase)), finalAddr, 16, 16);
             ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
         ImGui::End();
+    } else {
+        // Only draw the cursor if imgui is called.
+        ImGui::GetIO().MouseDrawCursor = false;
     }
 
     if (isWantDebugMenu) {
@@ -189,9 +192,6 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
         }
         ImGui::End();
 
-    } else {
-        //ImGui::GetIO().MouseDrawCursor = false;
-        //ImGui::GetIO().WantCaptureMouse = false;
     }
 
 
@@ -210,42 +210,102 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
     return result;
 }
 
+// Thanks [https://stackoverflow.com/a/48737037]
+void Patch(int* dst, int* src, int size)
+{
+    DWORD oldprotect;
+    VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &oldprotect);
+    memcpy(dst, src, size);
+    VirtualProtect(dst, size, oldprotect, &oldprotect);
+}
+
 [[noreturn]] VOID WINAPI ListenKeyPressDebug(){
     bool debounce = false;
     bool enabled = false;
+    bool forceEnable = false;
     int lobyte = 0x000000FF;
 
-    while (true) {
-        int *addr = (int*)((baseAddr + 0x2D84B0) - exeBase);
+    int* debugByte    = (int*)((baseAddr + 0x2D84B0) - exeBase); // Debug Toggle
+    char* cameraByte1 = (char*)((baseAddr + 0x9AD02) - exeBase); // should be 0x00 in debug mode - code
+    char* cameraByte2 = (char*)((baseAddr + 0x9AD0C) - exeBase); // should be 0x01 in debug mode - code
+    int* cameraByteA  = (int*)((baseAddr + 0x36CC60) - exeBase); // Should toggle after the camera bytes.
+    int* cameraByteB  = (int*)((baseAddr + 0x36CC68) - exeBase); // Should toggle after the camera bytes.
 
+    int one = 1;
+    int zero = 0;
+
+    while (true) {
         // Listen for keypress. (the - key beside 0 in the number strip)
         auto keystate = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
-        if (keystate) {
+        auto debugS = GetAsyncKeyState(VK_F8) & 0x8000;
+
+        // Special state = for debugging purposes only.
+        if (debugS) {
             if (debounce)
                 continue;
 
             debounce = true;
-
-            // Toggle the debug menu byte.
-            *addr = *addr ^ 0x00000001;
-
-            if ((lobyte & *addr) == 0x00) {
-                enabled = false;
-                printf("[Monokuma] Debug Menu Closed\n");
+            forceEnable = !forceEnable;
+            enabled = forceEnable;
+            switch (forceEnable) {
+                case true:
+                    printf("[Monokuma] Debug Menu is forced ON\n");
+                case false:
+                    printf("[Monokuma] Debug Menu is forced OFF.\n");
             }
-            else {
+        } else {
+            debounce = false;
+        }
+
+        if (keystate) {
+            if (debounce || forceEnable)
+                continue;
+
+            debounce = true;
+
+            // Toggle the debug menu bytes.
+            *debugByte = *debugByte ^ 0x00000001;
+
+
+            if ((lobyte & *debugByte) == 0x00) {
+                enabled = false;
+                Patch((int *) cameraByte1, &one, 1);
+                Patch((int *) cameraByte2, &zero, 1);
+
+                // Reset our camera debug byte.
+                *cameraByteA = *cameraByteA ^ 0x00000001;
+                *cameraByteB = *cameraByteB ^ 0x00000001;
+
+                printf("[Monokuma] Debug Menu Closed\n");
+            } else {
                 enabled = true;
+                Patch((int *) cameraByte1, &zero, 1);
+                Patch((int *) cameraByte2, &one, 1);
+
+                // Reset our camera debug byte.
+                *cameraByteA = *cameraByteA ^ 0x00000001;
+                *cameraByteB = *cameraByteB ^ 0x00000001;
+
                 printf("[Monokuma] Debug Menu Opened\n");
             }
 
             continue;
-        }
-        else {
+        } else {
             debounce = false;
         }
 
-        if ((lobyte & *addr) == 0x00 && enabled) {
+        if ((lobyte & *debugByte) == 0x00 && enabled) {
+            if (forceEnable)
+                continue;
+
             enabled = false;
+            Patch((int*)cameraByte1, &one, 1);
+            Patch((int*)cameraByte2, &zero, 1);
+
+            // Reset our camera debug byte.
+            *cameraByteA = *cameraByteA ^ 0x00000001;
+            *cameraByteB = *cameraByteB ^ 0x00000001;
+
             printf("[Monokuma] Debug Menu Closed\n");
         }
 
