@@ -99,6 +99,12 @@ typedef long(__stdcall* Reset)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
 static Reset oReset = NULL;
 static EndScene oEndScene = NULL;
 
+
+static char inputBuffer[16];
+static char finalAddr[16];
+static char exeBaseStr[16];
+static char baseAddrStr[16];
+
 long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     if (!isImguiInit) {
         D3DDEVICE_CREATION_PARAMETERS params;
@@ -117,14 +123,48 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    if (isWantDebugMenu == true) {
-
-        ImGui::ShowDemoWindow();
-
-        bool boolean = false;
-        ImGui::GetIO().MouseDrawCursor = true;
-        ImGui::Begin("Debug Menu", &boolean, ImGuiWindowFlags_AlwaysAutoResize);
+    if (isWantImgui) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        ImGui::Begin("Utilities", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::BeginTabBar("##UtilitiesTabBar", ImGuiTabBarFlags_Reorderable);
+        if (ImGui::BeginTabItem("VA to A")) {
+            _itoa_s(exeBase, exeBaseStr,16 ,16);
+            _itoa_s(baseAddr, baseAddrStr, 16, 16);
+
+            ImGui::Text("Calculate Virtual Address to Current Address");
+            ImGui::Text("((Base Address + Virtual Address) - EXE Base)");
+            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Enter your VA here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+
+            // ((Base Addr + VA) - EXE Base) = Target Address
+            _itoa_s(((unsigned int) (baseAddr + strtol(inputBuffer, NULL, 16) - exeBase)), finalAddr, 16, 16);
+            ImGui::InputText("Target Address", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("A to VA")) {
+            _itoa_s(exeBase, exeBaseStr,16 ,16);
+            _itoa_s(baseAddr, baseAddrStr, 16, 16);
+
+            ImGui::Text("Calculate Virtual Address to Current Address");
+            ImGui::Text("((Base Address - Virtual Address) + EXE Base)");
+            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Enter your Addr here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
+
+            _itoa_s(((unsigned int) (baseAddr - strtol(inputBuffer, NULL, 16) + exeBase)), finalAddr, 16, 16);
+            ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+        ImGui::End();
+    }
+
+    if (isWantDebugMenu) {
+
+        //ImGui::ShowDemoWindow();
+        //ImGui::GetIO().MouseDrawCursor = true;
+        ImGui::Begin("Debug Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         //ImGui::SetWindowPos(ImVec2(0, 0));
         //ImGui::ShowDemoWindow();
         //ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
@@ -237,6 +277,24 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
         }
     }
 }
+[[noreturn]] VOID WINAPI ListenKeyPressImguiOverlay(){
+    bool debounce = false;
+
+    while (true) {
+        auto wantImgui = (GetAsyncKeyState(VK_OEM_PLUS) & 0x8000) && (GetAsyncKeyState(VK_LSHIFT) & 0x8000);
+        if (wantImgui) {
+            if (debounce)
+                continue;
+
+            debounce = true;
+
+            isWantImgui = !isWantImgui;
+        }
+        else {
+            debounce = false;
+        }
+    }
+}
 
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
@@ -269,7 +327,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 
             // Fire and forget our keypress threads
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressDebug), NULL, 0, NULL);
-            CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressAddrHelper), NULL, 0, NULL);
+            CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressImguiOverlay), NULL, 0, NULL);
 
             // Fire and forget our d3d9 hook
             CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(kieroInitThread), NULL, 0, NULL);
