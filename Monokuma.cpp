@@ -222,7 +222,7 @@ void Patch(int* dst, int* src, int size)
 [[noreturn]] VOID WINAPI ListenKeyPressDebug(){
     bool debounce = false;
     bool enabled = false;
-    bool forceEnable = false;
+    bool forceOpen = false;
     int lobyte = 0x000000FF;
 
     int* debugByte    = (int*)((baseAddr + 0x2D84B0) - exeBase); // Debug Toggle
@@ -237,31 +237,29 @@ void Patch(int* dst, int* src, int size)
     while (true) {
         // Listen for keypress. (the - key beside 0 in the number strip)
         auto keystate = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
-        auto debugS = GetAsyncKeyState(VK_F8) & 0x8000;
-
-        // Special state = for debugging purposes only.
-        if (debugS) {
-            if (debounce)
-                continue;
-
-            debounce = true;
-            forceEnable = !forceEnable;
-            enabled = forceEnable;
-            switch (forceEnable) {
-                case true:
-                    printf("[Monokuma] Debug Menu is forced ON\n");
-                case false:
-                    printf("[Monokuma] Debug Menu is forced OFF.\n");
-            }
-        } else {
-            debounce = false;
-        }
 
         if (keystate) {
-            if (debounce || forceEnable)
+            // Note to self: Debounce before doing anything
+            if (debounce)
                 continue;
-
             debounce = true;
+
+            if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
+                forceOpen = !forceOpen;
+                enabled = forceOpen;
+                isWantDebugMenu = forceOpen;
+                if (forceOpen){
+                    printf("[Monokuma] Debug Menu Forced Open\n");
+                }
+                else {
+                    printf("[Monokuma] Debug Menu Unforced Open\n");
+                }
+                continue;
+            }
+
+            if (forceOpen) {
+                continue;
+            }
 
             // Toggle the debug menu bytes.
             *debugByte = *debugByte ^ 0x00000001;
@@ -295,7 +293,7 @@ void Patch(int* dst, int* src, int size)
         }
 
         if ((lobyte & *debugByte) == 0x00 && enabled) {
-            if (forceEnable)
+            if (forceOpen)
                 continue;
 
             enabled = false;
