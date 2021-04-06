@@ -19,6 +19,8 @@ add_library(MonokumaHook SHARED
         Monokuma.h
         kiero/kiero.cpp
         kiero/kiero.h
+        kiero/examples/imgui/impl/win32_impl.cpp
+        kiero/examples/imgui/impl/win32_impl.h
         kiero/examples/imgui/imgui/examples/imgui_impl_win32.cpp
         kiero/examples/imgui/imgui/examples/imgui_impl_win32.h
         kiero/examples/imgui/imgui/examples/imgui_impl_dx9.cpp

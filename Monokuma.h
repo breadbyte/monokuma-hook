@@ -33,7 +33,7 @@ public:
         else {
             // drop command
             lockBuffer.push_back(screenPrintCommand);
-            printf("Dropped a print command! Buffer:%i pCmdVt:%i\n",lockBuffer.size() ,pCommandVector.size());
+            printf("[Monokuma] Dropped a print command! Buffer:%i pCmdVt:%i\n",lockBuffer.size() ,pCommandVector.size());
         }
     }
 

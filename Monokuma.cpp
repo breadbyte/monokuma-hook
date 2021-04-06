@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include <imgui.h>
+#include "kiero/examples/imgui/impl/win32_impl.h"
 #include "kiero/examples/imgui/imgui/examples/imgui_impl_win32.h"
 #include "kiero/examples/imgui/imgui/examples/imgui_impl_dx9.h"
 #pragma comment(lib, "d3d9.lib")
@@ -20,6 +21,8 @@ int exeBase = 0x30000;
 int stdoutFuncAddr = ((baseAddr + 0x130B00) - exeBase);
 int screenFuncAddr = ((baseAddr + 0x0435B1) - exeBase);
 bool isImguiInit = false;
+bool isWantImgui = false;
+bool isWantDebugMenu = false;
 
 ScreenPrintCommandBuffer cmdBuf = ScreenPrintCommandBuffer();
 
@@ -96,12 +99,12 @@ typedef long(__stdcall* Reset)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
 static Reset oReset = NULL;
 static EndScene oEndScene = NULL;
 
-long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice)
-{
-    if (!isImguiInit)
-    {
+long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
+    if (!isImguiInit) {
         D3DDEVICE_CREATION_PARAMETERS params;
         pDevice->GetCreationParameters(&params);
+
+        impl::win32::init(params.hFocusWindow);
 
         ImGui::CreateContext();
         ImGui_ImplWin32_Init(params.hFocusWindow);
@@ -114,26 +117,43 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice)
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    bool boolean = true;
-    //ImGui::Begin("Debug Menu", &boolean, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_AlwaysAutoResize);
-    //ImGui::ShowDemoWindow();
-    //ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-    //imguiDrawList = ImGui::GetForegroundDrawList();
-    //imguiDrawList->AddText(ImVec2(((int)0), ((int)0)), IM_COL32(0,0,255,255), "Hello ImGui screen draw!");
-    //auto globalDrawlist = ImGui::GetOverlayDrawList();
-    //auto wndDrw = ImGui::GetWindowDrawList();
-    //auto fgDrw = ImGui::GetForegroundDrawList();
-    auto bgDrw = ImGui::GetBackgroundDrawList();
-    auto cmds = cmdBuf.pull();
-    for (auto & cmd : cmds) {
-        //printf("Drawing [%i:%i] %s\n", cmd.xPos, cmd.yPos, cmd.text);
-        bgDrw->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
+    if (isWantDebugMenu == true) {
+
+        ImGui::ShowDemoWindow();
+
+        bool boolean = false;
+        ImGui::GetIO().MouseDrawCursor = true;
+        ImGui::Begin("Debug Menu", &boolean, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        //ImGui::SetWindowPos(ImVec2(0, 0));
+        //ImGui::ShowDemoWindow();
+        //ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        //imguiDrawList = ImGui::GetForegroundDrawList();
+        //imguiDrawList->AddText(ImVec2(((int)0), ((int)0)), IM_COL32(0,0,255,255), "Hello ImGui screen draw!");
+        //auto globalDrawlist = ImGui::GetOverlayDrawList();
+        //auto wndDrw = ImGui::GetWindowDrawList();
+        //auto fgDrw = ImGui::GetForegroundDrawList();
+        //auto bgDrw = ImGui::GetBackgroundDrawList();
+        auto test = ImGui::GetWindowDrawList();
+        auto wndPos = ImGui::GetWindowPos();
+        auto cmds = cmdBuf.pull();
+        for (auto &cmd : cmds) {
+
+            // [x + 5], [y + 20] to account for default window decoration
+            ImGui::SetCursorScreenPos(ImVec2(wndPos.x + cmd.xPos + 5, wndPos.y + cmd.yPos + 20));
+
+            ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", cmd.text.c_str());
+            //test->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
+            //printf("Drawing [%i:%i] %s\n", cmd.xPos, cmd.yPos, cmd.text);
+            //bgDrw->AddText(ImVec2(cmd.xPos, cmd.yPos), IM_COL32(255, 0, 255, 255), cmd.text.c_str());
+        }
+        ImGui::End();
+
+    } else {
+        //ImGui::GetIO().MouseDrawCursor = false;
+        //ImGui::GetIO().WantCaptureMouse = false;
     }
-    //fgDrw->AddText(ImVec2(500, 400), IM_COL32(0,0,150,1), "Hello ImGui Fground!");
-    //wndDrw->AddText(ImVec2(500, 500), IM_COL32(0,0,150,1), "Hello ImGui Window!");
-    // globalDrawlist->
-    //ImGui::End();
-    //ImGui::ShowDemoWindow();
+
 
     ImGui::EndFrame();
     ImGui::Render();
@@ -188,6 +208,8 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
             enabled = false;
             printf("[Monokuma] Debug Menu Closed\n");
         }
+
+        isWantDebugMenu = enabled;
     }
 }
 [[noreturn]] VOID WINAPI ListenKeyPressAddrHelper(){
@@ -219,9 +241,11 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
     if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
-        oEndScene = (EndScene) kiero::getMethodsTable()[42];
-        oReset = (Reset) kiero::getMethodsTable()[16];
+        //oEndScene = (EndScene) ;
+        //oReset = (Reset) ;
         //DetourAttach((void**)&oEndScene, hkEndScene);
+        //DetourAttach(&(PVOID &) kiero::getMethodsTable()[42], hkEndScene);
+        //DetourAttach(&(PVOID &) kiero::getMethodsTable()[16], hkReset);
         kiero::bind(16, (void**)&oReset, hkReset);
         kiero::bind(42, (void**)&oEndScene, hkEndScene);
         printf("[Monokuma] Kiero D3D9 Hook initialized\n");
