@@ -87,6 +87,7 @@ static char inputBuffer[16];
 static char finalAddr[16];
 static char exeBaseStr[16];
 static char baseAddrStr[16];
+bool hadOutput = false;
 
 long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     if (!isImguiInit) {
@@ -154,7 +155,7 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
         auto wndPos = ImGui::GetWindowPos();
         auto cmds = cmdBuf.pull();
 
-        if (cmds.empty()) {
+        if (cmds.empty() && !hadOutput) {
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + 0 + 5, wndPos.y + 0 + 20));
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", "Nobody here but us chickens!");
         }
@@ -164,9 +165,13 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             // [x + 5], [y + 20] to account for default window decoration
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + cmd.xPos + 5, wndPos.y + cmd.yPos + 20));
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", cmd.text.c_str());
+
+            hadOutput = true;
         }
 
         ImGui::End();
+    } else {
+        hadOutput = false;
     }
 
     ImGui::EndFrame();
@@ -212,35 +217,37 @@ void Patch(int* dst, int* src, int size)
 
     while (true) {
         // Listen for keypress. (the - key beside 0 in the number strip)
-        auto keystate = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
+        auto debugKeypress = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
+        auto forceOpenKeypress = GetAsyncKeyState(VK_F7) * 0x8000;
 
-        if (keystate) {
+        // Force Debug Menu Open (for development purposes)
+        if (forceOpenKeypress && !enabled) {
             // Note to self: Debounce before doing anything
             if (debounce)
                 continue;
             debounce = true;
 
-            // Force Debug Menu Open (for development purposes)
-            if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
-                forceOpen = !forceOpen;
-                enabled = forceOpen;
-                isWantDebugMenu = forceOpen;
-                if (forceOpen){
-                    printf("[Monokuma] Debug Menu Forced Open\n");
-                }
-                else {
-                    printf("[Monokuma] Debug Menu Unforced Open\n");
-                }
-                continue;
-            }
-
+            forceOpen = !forceOpen;
+            enabled = forceOpen;
+            isWantDebugMenu = forceOpen;
             if (forceOpen) {
-                continue;
+                printf("[Monokuma] Debug Menu Forced Open\n");
+            } else {
+                printf("[Monokuma] Debug Menu Unforced Open\n");
             }
+            continue;
+        }
+
+        // Debug Menu Opened
+        // todo: imgui only opens on keyup but forceopen opens on keydown?
+        if (debugKeypress && !forceOpen) {
+            // Note to self: Debounce before doing anything
+            if (debounce)
+                continue;
+            debounce = true;
 
             // Toggle the debug menu bytes.
             *debugByte = *debugByte ^ 0x00000001;
-
 
             if ((lobyte & *debugByte) == 0x00) {
                 enabled = false;
@@ -265,13 +272,12 @@ void Patch(int* dst, int* src, int size)
             }
 
             continue;
-        } else {
-            debounce = false;
         }
 
-        if ((lobyte & *debugByte) == 0x00 && enabled) {
-            if (forceOpen)
-                continue;
+        debounce = false;
+
+        // Check if we closed the debug menu in-game so we can set our state.
+        if ((lobyte & *debugByte) == 0x00 && enabled && !forceOpen) {
 
             enabled = false;
             Patch((int*)cameraByte1, &one, 1);
