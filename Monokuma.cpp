@@ -21,7 +21,11 @@ int exeBase = 0x30000;
 int stdoutFuncAddr = ((baseAddr + 0x130B00) - exeBase);
 int screenFuncAddr = ((baseAddr + 0x0435B1) - exeBase);
 bool isImguiInit = false;
+
+// Did the user manually call Imgui?
 bool isWantImgui = false;
+
+// Did the user call the debug menu?
 bool isWantDebugMenu = false;
 
 ScreenPrintCommandBuffer cmdBuf = ScreenPrintCommandBuffer();
@@ -51,9 +55,9 @@ void println(const char* pattern, ...) {
 }
 void printerr(const char* pattern, ...) {
     va_list args;
-            va_start(args, pattern);
+    va_start(args, pattern);
     vfprintf(stdout, pattern, args);
-            va_end(args);
+    va_end(args);
     std::cout << std::endl;
 }
 void println_screen(int x, int y, const char* buffer) {
@@ -68,6 +72,7 @@ typedef void (*oConsoleStderrPrintFunc)(const char* pattern, ...);
 typedef void (*oScreenPrintFunc)(int xPos, int yPos, const char* buffer);
 
 oConsoleStdoutPrintFunc stdoutPrintFuncReal    = (oConsoleStdoutPrintFunc)  stdoutFuncAddr;
+// todo
 oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((baseAddr + 0x0435B2) - exeBase);
 oScreenPrintFunc        screenPrintFuncReal    = (oScreenPrintFunc)         screenFuncAddr;
 
@@ -101,6 +106,7 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
+    // Manually called imgui.
     if (isWantImgui) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
         ImGui::Begin("Utilities", NULL, ImGuiWindowFlags_AlwaysAutoResize);
@@ -147,13 +153,19 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
 
         auto wndPos = ImGui::GetWindowPos();
         auto cmds = cmdBuf.pull();
+
+        if (cmds.empty()) {
+            ImGui::SetCursorScreenPos(ImVec2(wndPos.x + 0 + 5, wndPos.y + 0 + 20));
+            ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", "Nobody here but us chickens!");
+        }
+
         for (auto &cmd : cmds) {
 
             // [x + 5], [y + 20] to account for default window decoration
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + cmd.xPos + 5, wndPos.y + cmd.yPos + 20));
-
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", cmd.text.c_str());
         }
+
         ImGui::End();
     }
 
@@ -188,6 +200,8 @@ void Patch(int* dst, int* src, int size)
     int lobyte = 0x000000FF;
 
     int* debugByte    = (int*)((baseAddr + 0x2D84B0) - exeBase); // Debug Toggle
+
+    // Camera Lock Bytes
     char* cameraByte1 = (char*)((baseAddr + 0x9AD02) - exeBase); // should be 0x00 in debug mode - code
     char* cameraByte2 = (char*)((baseAddr + 0x9AD0C) - exeBase); // should be 0x01 in debug mode - code
     int* cameraByteA  = (int*)((baseAddr + 0x36CC60) - exeBase); // Should toggle after the camera bytes.
