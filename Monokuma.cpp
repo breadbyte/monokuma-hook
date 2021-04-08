@@ -203,7 +203,6 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
 
     while (true) {
         auto keypress = GetAsyncKeyState(VK_F5) & 0x8000;
-
         if (keypress) {
             if (debounce)
                 continue;
@@ -228,8 +227,9 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
 
             continue;
         }
-
-        debounce = false;
+        else {
+            debounce = false;
+        }
 
         // Check if we closed the debug menu in-game so we can set our state.
         if ((lobyte & *debugByte) == 0x00 && CurrentDebugMenu == DEBUG) {
@@ -247,10 +247,8 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
     int* debugByte    = (int*)((BaseAddress + 0x36CC60) - ExecutableBase); // Debug Toggle
 
     while (true) {
-        // Listen for keypress.
-        auto debugKeypress = GetAsyncKeyState(VK_F6) & 0x8000;
-
-        if (debugKeypress) {
+        auto keypress = GetAsyncKeyState(VK_F6) & 0x8000;
+        if (keypress) {
             if (debounce)
                 continue;
             debounce = true;
@@ -277,7 +275,15 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
                     break;
             }
 
+        }
+        else {
             debounce = false;
+        }
+
+        if (*debugByte == 0x01 && CurrentDebugMenu == CAMERA) {
+            CurrentDebugMenu = NONE;
+
+            printf("[Monokuma] Camera Debug Menu Closed\n");
         }
     }
 }
@@ -307,8 +313,9 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
             continue;
 
         }
-
-        debounce = false;
+        else {
+            debounce = false;
+        }
     }
 }
 // F10 - Utilities Overlay
@@ -339,11 +346,12 @@ int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
     if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
         // TODO: Reduce kiero minhook dependency by using detours instead
-        //DetourAttach((void**)&oEndScene, hkEndScene);
-        //DetourAttach(&(PVOID &) kiero::getMethodsTable()[42], hkEndScene);
-        //DetourAttach(&(PVOID &) kiero::getMethodsTable()[16], hkReset);
-        kiero::bind(16, (void**)&oReset, hkReset);
+        //oEndScene   = reinterpret_cast<EndScene>((int) (kiero::getMethodsTable()[42]));
+        //oReset      = reinterpret_cast<Reset>((int) (kiero::getMethodsTable()[16]));
+        //DetourAttach(&(PVOID &) oEndScene, hkEndScene);
+        //DetourAttach(&(PVOID &) oReset, hkReset);
         kiero::bind(42, (void**)&oEndScene, hkEndScene);
+        kiero::bind(16, (void**)&oReset, hkReset);
         printf("[Monokuma] Kiero D3D9 Hook initialized\n");
         return 1;
     }
