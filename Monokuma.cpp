@@ -1,8 +1,8 @@
 #include "Monokuma.h"
 #include "kiero/kiero.h"
 
-#include <windows.h>
 #include <detours/detours.h>
+#include <windows.h>
 
 #include <d3d9.h>
 #include <d3dx9.h>
@@ -16,10 +16,8 @@
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3dx9.lib")
 
-int baseAddr = (int) GetModuleHandle(nullptr);
-int exeBase = 0x30000;
-int stdoutFuncAddr = ((baseAddr + 0x130B00) - exeBase);
-int screenFuncAddr = ((baseAddr + 0x0435B1) - exeBase);
+int stdoutFuncAddr = ((BaseAddress + 0x130B00) - ExecutableBase);
+int screenFuncAddr = ((BaseAddress + 0x0435B1) - ExecutableBase);
 bool isImguiInit = false;
 
 // Did the user manually call Imgui?
@@ -73,7 +71,7 @@ typedef void (*oScreenPrintFunc)(int xPos, int yPos, const char* buffer);
 
 oConsoleStdoutPrintFunc stdoutPrintFuncReal    = (oConsoleStdoutPrintFunc)  stdoutFuncAddr;
 // todo
-oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((baseAddr + 0x0435B2) - exeBase);
+oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((BaseAddress + 0x0435B2) - ExecutableBase);
 oScreenPrintFunc        screenPrintFuncReal    = (oScreenPrintFunc)         screenFuncAddr;
 
 typedef long(__stdcall* EndScene)(LPDIRECT3DDEVICE9);
@@ -113,8 +111,8 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
         ImGui::Begin("Utilities", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::BeginTabBar("##UtilitiesTabBar", ImGuiTabBarFlags_Reorderable);
         if (ImGui::BeginTabItem("VA to A")) {
-            _itoa_s(exeBase, exeBaseStr,16 ,16);
-            _itoa_s(baseAddr, baseAddrStr, 16, 16);
+            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
+            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
 
             ImGui::Text("Calculate Virtual Address to Current Address");
             ImGui::Text("((Base Address + Virtual Address) - EXE Base)");
@@ -123,13 +121,13 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             ImGui::InputText("Enter your VA here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
 
             // ((Base Addr + VA) - EXE Base) = Target Address
-            _itoa_s(((unsigned int) (baseAddr + strtol(inputBuffer, NULL, 16) - exeBase)), finalAddr, 16, 16);
+            _itoa_s(((unsigned int) (BaseAddress + strtol(inputBuffer, NULL, 16) - ExecutableBase)), finalAddr, 16, 16);
             ImGui::InputText("Target Address", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("A to VA")) {
-            _itoa_s(exeBase, exeBaseStr,16 ,16);
-            _itoa_s(baseAddr, baseAddrStr, 16, 16);
+            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
+            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
 
             ImGui::Text("Calculate Virtual Address to Current Address");
             ImGui::Text("((Virtual Address - Base Address) + EXE Base)");
@@ -137,7 +135,7 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::InputText("Enter your Addr here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
 
-            _itoa_s(((unsigned int) ((strtol(inputBuffer, NULL, 16) - baseAddr)  + exeBase)), finalAddr, 16, 16);
+            _itoa_s(((unsigned int) ((strtol(inputBuffer, NULL, 16) - BaseAddress) + ExecutableBase)), finalAddr, 16, 16);
             ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
@@ -189,31 +187,13 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
     return result;
 }
 
-// Thanks [https://stackoverflow.com/a/48737037]
-void Patch(int* dst, int* src, int size)
-{
-    DWORD oldprotect;
-    VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &oldprotect);
-    memcpy(dst, src, size);
-    VirtualProtect(dst, size, oldprotect, &oldprotect);
-}
-
 [[noreturn]] VOID WINAPI ListenKeyPressDebug(){
     bool debounce = false;
     bool enabled = false;
     bool forceOpen = false;
     int lobyte = 0x000000FF;
 
-    int* debugByte    = (int*)((baseAddr + 0x2D84B0) - exeBase); // Debug Toggle
-
-    // Camera Lock Bytes
-    char* cameraByte1 = (char*)((baseAddr + 0x9AD02) - exeBase); // should be 0x00 in debug mode - code
-    char* cameraByte2 = (char*)((baseAddr + 0x9AD0C) - exeBase); // should be 0x01 in debug mode - code
-    int* cameraByteA  = (int*)((baseAddr + 0x36CC60) - exeBase); // Should toggle after the camera bytes.
-    int* cameraByteB  = (int*)((baseAddr + 0x36CC68) - exeBase); // Should toggle after the camera bytes.
-
-    int one = 1;
-    int zero = 0;
+    int* debugByte    = (int*)((BaseAddress + 0x2D84B0) - ExecutableBase); // Debug Toggle
 
     while (true) {
         // Listen for keypress. (the - key beside 0 in the number strip)
@@ -251,22 +231,12 @@ void Patch(int* dst, int* src, int size)
 
             if ((lobyte & *debugByte) == 0x00) {
                 enabled = false;
-                Patch((int *) cameraByte1, &one, 1);
-                Patch((int *) cameraByte2, &zero, 1);
-
-                // Reset our camera debug byte.
-                *cameraByteA = *cameraByteA ^ 0x00000001;
-                *cameraByteB = *cameraByteB ^ 0x00000001;
+                SetCameraState(UNLOCKED);
 
                 printf("[Monokuma] Debug Menu Closed\n");
             } else {
                 enabled = true;
-                Patch((int *) cameraByte1, &zero, 1);
-                Patch((int *) cameraByte2, &one, 1);
-
-                // Reset our camera debug byte.
-                *cameraByteA = *cameraByteA ^ 0x00000001;
-                *cameraByteB = *cameraByteB ^ 0x00000001;
+                SetCameraState(LOCKED);
 
                 printf("[Monokuma] Debug Menu Opened\n");
             }
@@ -280,12 +250,7 @@ void Patch(int* dst, int* src, int size)
         if ((lobyte & *debugByte) == 0x00 && enabled && !forceOpen) {
 
             enabled = false;
-            Patch((int*)cameraByte1, &one, 1);
-            Patch((int*)cameraByte2, &zero, 1);
-
-            // Reset our camera debug byte.
-            *cameraByteA = *cameraByteA ^ 0x00000001;
-            *cameraByteB = *cameraByteB ^ 0x00000001;
+            SetCameraState(UNLOCKED);
 
             printf("[Monokuma] Debug Menu Closed\n");
         }
@@ -347,8 +312,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             // Fire and forget our d3d9 hook
             CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(kieroInitThread), NULL, 0, NULL);
 
-            printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
-            printf("[Monokuma] EXE base is %Xh\n", exeBase);
+            printf("[Monokuma] Base addr for EXE is %Xh\n", BaseAddress);
+            printf("[Monokuma] EXE base is %Xh\n", ExecutableBase);
             printf("[Monokuma] Addr for func stdoutPrintFunc is %Xh.\n", stdoutFuncAddr);
             printf("[Monokuma] Addr for func screenPrintFunc is %Xh.\n", screenFuncAddr);
             DetourTransactionBegin();
