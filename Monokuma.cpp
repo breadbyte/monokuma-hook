@@ -190,7 +190,14 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
 }
 
 // Thanks [https://stackoverflow.com/a/48737037]
-void Patch(int* dst, int* src, int size)
+void PatchInt(int* dst, int* src, int size)
+{
+    DWORD oldprotect;
+    VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &oldprotect);
+    memcpy(dst, src, size);
+    VirtualProtect(dst, size, oldprotect, &oldprotect);
+}
+void PatchChar(char* dst, char* src, int size)
 {
     DWORD oldprotect;
     VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &oldprotect);
@@ -251,8 +258,8 @@ void Patch(int* dst, int* src, int size)
 
             if ((lobyte & *debugByte) == 0x00) {
                 enabled = false;
-                Patch((int *) cameraByte1, &one, 1);
-                Patch((int *) cameraByte2, &zero, 1);
+                PatchInt((int *) cameraByte1, &one, 1);
+                PatchInt((int *) cameraByte2, &zero, 1);
 
                 // Reset our camera debug byte.
                 *cameraByteA = *cameraByteA ^ 0x00000001;
@@ -261,8 +268,8 @@ void Patch(int* dst, int* src, int size)
                 printf("[Monokuma] Debug Menu Closed\n");
             } else {
                 enabled = true;
-                Patch((int *) cameraByte1, &zero, 1);
-                Patch((int *) cameraByte2, &one, 1);
+                PatchInt((int *) cameraByte1, &zero, 1);
+                PatchInt((int *) cameraByte2, &one, 1);
 
                 // Reset our camera debug byte.
                 *cameraByteA = *cameraByteA ^ 0x00000001;
@@ -280,8 +287,8 @@ void Patch(int* dst, int* src, int size)
         if ((lobyte & *debugByte) == 0x00 && enabled && !forceOpen) {
 
             enabled = false;
-            Patch((int*)cameraByte1, &one, 1);
-            Patch((int*)cameraByte2, &zero, 1);
+            PatchInt((int *) cameraByte1, &one, 1);
+            PatchInt((int *) cameraByte2, &zero, 1);
 
             // Reset our camera debug byte.
             *cameraByteA = *cameraByteA ^ 0x00000001;
@@ -310,6 +317,9 @@ void Patch(int* dst, int* src, int size)
             debounce = false;
         }
     }
+}
+VOID WINAPI ApplyPatch(){
+    patch_dr1_us_exe();
 }
 
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
@@ -346,6 +356,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 
             // Fire and forget our d3d9 hook
             CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(kieroInitThread), NULL, 0, NULL);
+
+            // Fire and forget our patcher thread
+            CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(ApplyPatch), NULL, 0, NULL);
 
             printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
             printf("[Monokuma] EXE base is %Xh\n", exeBase);
