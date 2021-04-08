@@ -19,12 +19,7 @@
 int stdoutFuncAddr = ((BaseAddress + 0x130B00) - ExecutableBase);
 int screenFuncAddr = ((BaseAddress + 0x0435B1) - ExecutableBase);
 bool isImguiInit = false;
-
-// Did the user manually call Imgui?
 bool isWantImgui = false;
-
-// Did the user call the debug menu?
-bool isWantDebugMenu = false;
 
 ScreenPrintCommandBuffer cmdBuf = ScreenPrintCommandBuffer();
 
@@ -80,12 +75,10 @@ typedef long(__stdcall* Reset)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
 static Reset oReset = NULL;
 static EndScene oEndScene = NULL;
 
-
 static char inputBuffer[16];
 static char finalAddr[16];
 static char exeBaseStr[16];
 static char baseAddrStr[16];
-bool hadOutput = false;
 
 long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     if (!isImguiInit) {
@@ -139,6 +132,24 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("State")) {
+            switch (CurrentDebugMenu) {
+                case NONE:
+                    ImGui::Text("Current State: None");
+                    break;
+                case DEBUG:
+                    ImGui::Text("Current State: Debug Menu");
+                    break;
+                case CAMERA:
+                    ImGui::Text("Current State: Camera Placement");
+                    break;
+                case FORCED_OPEN:
+                    ImGui::Text("Current State: Forced Open");
+                    break;
+            }
+            ImGui::Text("AVG FPS: %f", ImGui::GetIO().Framerate);
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
         ImGui::End();
     } else {
@@ -147,13 +158,13 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
         ImGui::GetIO().MouseDrawCursor = false;
     }
 
-    if (isWantDebugMenu) {
+    if (CurrentDebugMenu != NONE) {
         ImGui::Begin("Debug Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
         auto wndPos = ImGui::GetWindowPos();
         auto cmds = cmdBuf.pull();
 
-        if (cmds.empty() && !hadOutput) {
+        if (cmds.empty()) {
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + 0 + 5, wndPos.y + 0 + 20));
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", "Nobody here but us chickens!");
         }
@@ -163,13 +174,9 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
             // [x + 5], [y + 20] to account for default window decoration
             ImGui::SetCursorScreenPos(ImVec2(wndPos.x + cmd.xPos + 5, wndPos.y + cmd.yPos + 20));
             ImGui::TextColored(ImVec4(255, 0, 255, 255), "%s", cmd.text.c_str());
-
-            hadOutput = true;
         }
 
         ImGui::End();
-    } else {
-        hadOutput = false;
     }
 
     ImGui::EndFrame();
@@ -187,57 +194,35 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
     return result;
 }
 
+// F5 - Debug Menu
 [[noreturn]] VOID WINAPI ListenKeyPressDebug(){
     bool debounce = false;
-    bool enabled = false;
-    bool forceOpen = false;
     int lobyte = 0x000000FF;
 
     int* debugByte = (int*)((BaseAddress + 0x2D84B0) - ExecutableBase); // Debug Toggle
 
     while (true) {
-        // Listen for keypress. (the - key beside 0 in the number strip)
-        auto debugKeypress = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
-        auto forceOpenKeypress = GetAsyncKeyState(VK_F7) * 0x8000;
+        auto keypress = GetAsyncKeyState(VK_F5) & 0x8000;
 
-        // Force Debug Menu Open (for development purposes)
-        if (forceOpenKeypress && !enabled) {
-            // Note to self: Debounce before doing anything
+        if (keypress) {
             if (debounce)
                 continue;
             debounce = true;
 
-            forceOpen = !forceOpen;
-            enabled = forceOpen;
-            isWantDebugMenu = forceOpen;
-            if (forceOpen) {
-                printf("[Monokuma] Debug Menu Forced Open\n");
-            } else {
-                printf("[Monokuma] Debug Menu Unforced Open\n");
-            }
-            continue;
-        }
-
-        // Debug Menu Opened
-        // todo: imgui only opens on keyup but forceopen opens on keydown?
-        if (debugKeypress && !forceOpen) {
-            // Note to self: Debounce before doing anything
-            if (debounce)
-                continue;
-            debounce = true;
+            if (CurrentDebugMenu != NONE)
+                if (CurrentDebugMenu != DEBUG)
+                    continue;
 
             // Toggle the debug menu bytes.
             *debugByte = *debugByte ^ 0x00000001;
 
             if ((lobyte & *debugByte) == 0x00) {
-                enabled = false;
+                CurrentDebugMenu = NONE;
                 SetCameraState(UNLOCKED);
-
                 printf("[Monokuma] Debug Menu Closed\n");
             } else {
-                enabled = true;
+                CurrentDebugMenu = DEBUG;
                 SetCameraState(LOCKED);
-
                 printf("[Monokuma] Debug Menu Opened\n");
             }
 
@@ -247,49 +232,43 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
         debounce = false;
 
         // Check if we closed the debug menu in-game so we can set our state.
-        if ((lobyte & *debugByte) == 0x00 && enabled && !forceOpen) {
-
-            enabled = false;
+        if ((lobyte & *debugByte) == 0x00 && CurrentDebugMenu == DEBUG) {
+            CurrentDebugMenu = NONE;
             SetCameraState(UNLOCKED);
-
             printf("[Monokuma] Debug Menu Closed\n");
         }
-
-        isWantDebugMenu = enabled;
     }
 }
+// F6 - Camera Debug Menu
 [[noreturn]] VOID WINAPI ListenKeyPressPlayerCameraDebug() {
     bool debounce = false;
-    bool enabled = false;
-    bool forceOpen = false;
 
     // Player Camera Debug Byte
     int* debugByte    = (int*)((BaseAddress + 0x36CC60) - ExecutableBase); // Debug Toggle
 
     while (true) {
-        // Listen for keypress. (the - key beside 0 in the number strip)
-        auto debugKeypress = GetAsyncKeyState(VK_F8) & 0x8000;
+        // Listen for keypress.
+        auto debugKeypress = GetAsyncKeyState(VK_F6) & 0x8000;
 
         if (debugKeypress) {
             if (debounce)
                 continue;
             debounce = true;
 
-            if (isWantDebugMenu)
-                continue;
+            if (CurrentDebugMenu != NONE)
+                if (CurrentDebugMenu != CAMERA)
+                    continue;
 
             switch (*debugByte) {
                 case 0x06:
                     *debugByte = 0x01;
-                    enabled = false;
-
+                    CurrentDebugMenu = NONE;
                     SetCameraState(UNLOCKED);
                     printf("[Monokuma] Camera Debug Menu Closed\n");
                     break;
                 case 0x01:
                     *debugByte = 0x06;
-                    enabled = true;
-
+                    CurrentDebugMenu = CAMERA;
                     SetCameraState(LOCKED);
                     printf("[Monokuma] Camera Debug Menu Opened\n");
                     break;
@@ -297,16 +276,47 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
                     printf("[Monokuma] Cannot open Camera Debug Menu, currently in invalid state!\n");
                     break;
             }
-        }
 
-        isWantDebugMenu = enabled;
+            debounce = false;
+        }
     }
 }
+// F9 - Force Debug Menu On (Development Option)
+[[noreturn]] VOID WINAPI ListenKeyPressForceDebugMenu() {
+    bool debounce = false;
+
+    while (true) {
+        auto keypress = (GetAsyncKeyState(VK_F9) & 0x8000);
+        if (keypress) {
+            if (debounce)
+                continue;
+            debounce = true;
+
+            if (CurrentDebugMenu != NONE)
+                if (CurrentDebugMenu != FORCED_OPEN)
+                    continue;
+
+            if (CurrentDebugMenu == FORCED_OPEN) {
+                CurrentDebugMenu = NONE;
+                printf("[Monokuma] Debug Menu Unforced Open\n");
+            } else {
+                CurrentDebugMenu = FORCED_OPEN;
+                printf("[Monokuma] Debug Menu Forced Open\n");
+            }
+
+            continue;
+
+        }
+
+        debounce = false;
+    }
+}
+// F10 - Utilities Overlay
 [[noreturn]] VOID WINAPI ListenKeyPressImguiOverlay(){
     bool debounce = false;
 
     while (true) {
-        auto wantImgui = (GetAsyncKeyState(VK_OEM_PLUS) & 0x8000) && (GetAsyncKeyState(VK_LSHIFT) & 0x8000);
+        auto wantImgui = (GetAsyncKeyState(VK_F10) & 0x8000);
         if (wantImgui) {
             if (debounce)
                 continue;
@@ -352,6 +362,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             // Fire and forget our keypress threads
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressDebug), NULL, 0, NULL);
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressPlayerCameraDebug), NULL, 0, NULL);
+            CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressForceDebugMenu), NULL, 0, NULL);
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressImguiOverlay), NULL, 0, NULL);
 
             // Fire and forget our d3d9 hook

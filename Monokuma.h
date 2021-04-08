@@ -50,9 +50,10 @@ enum CAMERASTATE {
     UNLOCKED
 };
 enum DEBUGMENU {
-    NONE,
-    DEBUG,
-    CAMERA
+    NONE = 1,
+    DEBUG = 2,
+    CAMERA = 4,
+    FORCED_OPEN = 8
 };
 DEBUGMENU CurrentDebugMenu = NONE;
 
