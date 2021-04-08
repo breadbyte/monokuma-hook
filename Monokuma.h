@@ -61,7 +61,7 @@ int BaseAddress = (int) GetModuleHandle(nullptr);
 int ExecutableBase = 0x30000;
 
 // Thanks [https://stackoverflow.com/a/48737037]
-void Patch(int* dst, int* src, int size)
+void PatchInt(int* dst, int* src, int size)
 {
     DWORD oldprotect;
     VirtualProtect(dst, size, PAGE_EXECUTE_READWRITE, &oldprotect);
@@ -81,12 +81,12 @@ void SetCameraState(CAMERASTATE state) {
 
     switch (state) {
         case UNLOCKED:
-            Patch((int *) cameraByte1, &one, 1);
-            Patch((int *) cameraByte2, &zero, 1);
+            PatchInt((int *) cameraByte1, &one, 1);
+            PatchInt((int *) cameraByte2, &zero, 1);
             break;
         case LOCKED:
-            Patch((int *) cameraByte1, &zero, 1);
-            Patch((int *) cameraByte2, &one, 1);
+            PatchInt((int *) cameraByte1, &zero, 1);
+            PatchInt((int *) cameraByte2, &one, 1);
             break;
     };
 
