@@ -330,6 +330,9 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
         }
     }
 }
+VOID WINAPI ApplyPatch(){
+    patch_dr1_us_exe();
+}
 
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
@@ -368,6 +371,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             // Fire and forget our d3d9 hook
             CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(kieroInitThread), NULL, 0, NULL);
 
+            // Fire and forget our patcher thread
+            CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(ApplyPatch), NULL, 0, NULL);
+
+            printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
+            printf("[Monokuma] EXE base is %Xh\n", exeBase);
             printf("[Monokuma] Base addr for EXE is %Xh\n", BaseAddress);
             printf("[Monokuma] EXE base is %Xh\n", ExecutableBase);
             printf("[Monokuma] Addr for func stdoutPrintFunc is %Xh.\n", stdoutFuncAddr);
