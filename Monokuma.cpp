@@ -263,13 +263,13 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
                 case 0x06:
                     *debugByte = 0x01;
                     CurrentDebugMenu = NONE;
-                    SetCameraState(UNLOCKED);
+
                     printf("[Monokuma] Camera Debug Menu Closed\n");
                     break;
                 case 0x01:
                     *debugByte = 0x06;
                     CurrentDebugMenu = CAMERA;
-                    SetCameraState(LOCKED);
+
                     printf("[Monokuma] Camera Debug Menu Opened\n");
                     break;
                 default:
@@ -330,6 +330,7 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
         }
     }
 }
+
 VOID WINAPI ApplyPatch(){
     patch_dr1_us_exe();
 }
@@ -344,7 +345,6 @@ int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
         kiero::bind(16, (void**)&oReset, hkReset);
         kiero::bind(42, (void**)&oEndScene, hkEndScene);
         printf("[Monokuma] Kiero D3D9 Hook initialized\n");
-        printf("[Monokuma] If the patch is applied, the debug menu should show up.\n");
         return 1;
     }
     printf("[Monokuma] Failed to initialize Kiero D3D9 Hook\n");
@@ -374,8 +374,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             // Fire and forget our patcher thread
             CreateThread(NULL, 0,  reinterpret_cast<LPTHREAD_START_ROUTINE>(ApplyPatch), NULL, 0, NULL);
 
-            printf("[Monokuma] Base addr for EXE is %Xh\n", baseAddr);
-            printf("[Monokuma] EXE base is %Xh\n", exeBase);
             printf("[Monokuma] Base addr for EXE is %Xh\n", BaseAddress);
             printf("[Monokuma] EXE base is %Xh\n", ExecutableBase);
             printf("[Monokuma] Addr for func stdoutPrintFunc is %Xh.\n", stdoutFuncAddr);
