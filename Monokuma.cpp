@@ -193,7 +193,7 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
     bool forceOpen = false;
     int lobyte = 0x000000FF;
 
-    int* debugByte    = (int*)((BaseAddress + 0x2D84B0) - ExecutableBase); // Debug Toggle
+    int* debugByte = (int*)((BaseAddress + 0x2D84B0) - ExecutableBase); // Debug Toggle
 
     while (true) {
         // Listen for keypress. (the - key beside 0 in the number strip)
@@ -258,6 +258,50 @@ long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresen
         isWantDebugMenu = enabled;
     }
 }
+[[noreturn]] VOID WINAPI ListenKeyPressPlayerCameraDebug() {
+    bool debounce = false;
+    bool enabled = false;
+    bool forceOpen = false;
+
+    // Player Camera Debug Byte
+    int* debugByte    = (int*)((BaseAddress + 0x36CC60) - ExecutableBase); // Debug Toggle
+
+    while (true) {
+        // Listen for keypress. (the - key beside 0 in the number strip)
+        auto debugKeypress = GetAsyncKeyState(VK_F8) & 0x8000;
+
+        if (debugKeypress) {
+            if (debounce)
+                continue;
+            debounce = true;
+
+            if (isWantDebugMenu)
+                continue;
+
+            switch (*debugByte) {
+                case 0x06:
+                    *debugByte = 0x01;
+                    enabled = false;
+
+                    SetCameraState(UNLOCKED);
+                    printf("[Monokuma] Camera Debug Menu Closed\n");
+                    break;
+                case 0x01:
+                    *debugByte = 0x06;
+                    enabled = true;
+
+                    SetCameraState(LOCKED);
+                    printf("[Monokuma] Camera Debug Menu Opened\n");
+                    break;
+                default:
+                    printf("[Monokuma] Cannot open Camera Debug Menu, currently in invalid state!\n");
+                    break;
+            }
+        }
+
+        isWantDebugMenu = enabled;
+    }
+}
 [[noreturn]] VOID WINAPI ListenKeyPressImguiOverlay(){
     bool debounce = false;
 
@@ -307,6 +351,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 
             // Fire and forget our keypress threads
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressDebug), NULL, 0, NULL);
+            CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressPlayerCameraDebug), NULL, 0, NULL);
             CreateThread(NULL, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(ListenKeyPressImguiOverlay), NULL, 0, NULL);
 
             // Fire and forget our d3d9 hook

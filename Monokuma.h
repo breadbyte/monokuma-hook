@@ -49,6 +49,12 @@ enum CAMERASTATE {
     LOCKED,
     UNLOCKED
 };
+enum DEBUGMENU {
+    NONE,
+    DEBUG,
+    CAMERA
+};
+DEBUGMENU CurrentDebugMenu = NONE;
 
 int BaseAddress = (int) GetModuleHandle(nullptr);
 int ExecutableBase = 0x30000;
