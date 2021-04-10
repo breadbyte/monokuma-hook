@@ -345,13 +345,15 @@ VOID WINAPI ApplyPatch(){
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
     if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
-        // TODO: Reduce kiero minhook dependency by using detours instead
-        //oEndScene   = reinterpret_cast<EndScene>((int) (kiero::getMethodsTable()[42]));
-        //oReset      = reinterpret_cast<Reset>((int) (kiero::getMethodsTable()[16]));
-        //DetourAttach(&(PVOID &) oEndScene, hkEndScene);
-        //DetourAttach(&(PVOID &) oReset, hkReset);
-        kiero::bind(42, (void**)&oEndScene, hkEndScene);
-        kiero::bind(16, (void**)&oReset, hkReset);
+        oEndScene   = reinterpret_cast<EndScene>(kiero::getMethodsTable()[42]);
+        oReset      = reinterpret_cast<Reset>(kiero::getMethodsTable()[16]);
+        DetourTransactionBegin();
+        DetourUpdateThread(GetCurrentThread());
+
+        DetourAttach(&(PVOID &) oEndScene, hkEndScene);
+        DetourAttach(&(PVOID &) oReset, hkReset);
+
+        DetourTransactionCommit();
         printf("[Monokuma] Kiero D3D9 Hook initialized\n");
         return 1;
     }
@@ -403,6 +405,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourUpdateThread(GetCurrentThread());
             DetourDetach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourDetach(&(PVOID &) screenPrintFuncReal, println_screen);
+            DetourDetach(&(PVOID &) oEndScene, hkEndScene);
+            DetourDetach(&(PVOID &) oReset, hkReset);
 
             //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
