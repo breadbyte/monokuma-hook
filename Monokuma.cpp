@@ -69,27 +69,36 @@ oConsoleStdoutPrintFunc stdoutPrintFuncReal    = (oConsoleStdoutPrintFunc)  stdo
 oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((BaseAddress + 0x0435B2) - ExecutableBase);
 oScreenPrintFunc        screenPrintFuncReal    = (oScreenPrintFunc)         screenFuncAddr;
 
-typedef long(__stdcall* EndScene)(LPDIRECT3DDEVICE9);
-typedef long(__stdcall* Reset)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*);
+typedef long(__stdcall* ResetEx)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*, D3DDISPLAYMODEEX*);
+typedef long(__stdcall* PresentEx)(LPDIRECT3DDEVICE9EX, const RECT*, const RECT*, HWND, const RGNDATA*, DWORD);
 
-static Reset oReset = NULL;
-static EndScene oEndScene = NULL;
+static ResetEx oResetEx = NULL;
+static PresentEx oPresentEx = NULL;
 
 static char inputBuffer[16];
 static char finalAddr[16];
 static char exeBaseStr[16];
 static char baseAddrStr[16];
 
-long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
+long __stdcall hkResetEx(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters, D3DDISPLAYMODEEX* pFullscreenDisplayMode)
+{
+    ImGui_ImplDX9_InvalidateDeviceObjects();
+    long result = oResetEx(pDevice, pPresentationParameters, pFullscreenDisplayMode);
+    ImGui_ImplDX9_CreateDeviceObjects();
+
+    return result;
+}
+long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRect,const RECT* pDestRect, HWND hDestWindowOverride, const RGNDATA* pDirtyRegion, DWORD dwFlags) {
+
     if (!isImguiInit) {
         D3DDEVICE_CREATION_PARAMETERS params;
-        pDevice->GetCreationParameters(&params);
+        pDeviceEx->GetCreationParameters(&params);
 
         impl::win32::init(params.hFocusWindow);
 
         ImGui::CreateContext();
         ImGui_ImplWin32_Init(params.hFocusWindow);
-        ImGui_ImplDX9_Init(pDevice);
+        ImGui_ImplDX9_Init(pDeviceEx);
 
         isImguiInit = true;
     }
@@ -183,15 +192,7 @@ long __stdcall hkEndScene(LPDIRECT3DDEVICE9 pDevice) {
     ImGui::Render();
     ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 
-    return oEndScene(pDevice);
-}
-long __stdcall hkReset(LPDIRECT3DDEVICE9 pDevice, D3DPRESENT_PARAMETERS* pPresentationParameters)
-{
-    ImGui_ImplDX9_InvalidateDeviceObjects();
-    long result = oReset(pDevice, pPresentationParameters);
-    ImGui_ImplDX9_CreateDeviceObjects();
-
-    return result;
+    return oPresentEx(pDeviceEx, pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, dwFlags);
 }
 
 // F5 - Debug Menu
@@ -344,14 +345,14 @@ VOID WINAPI ApplyPatch(){
 
 int __CLRCALL_PURE_OR_STDCALL kieroInitThread()
 {
-    if (kiero::init(kiero::RenderType::D3D9) == kiero::Status::Success) {
-        oEndScene   = reinterpret_cast<EndScene>(kiero::getMethodsTable()[42]);
-        oReset      = reinterpret_cast<Reset>(kiero::getMethodsTable()[16]);
+    if (kiero::init(kiero::RenderType::D3D9EX) == kiero::Status::Success) {
+        oResetEx      = reinterpret_cast<ResetEx>(kiero::getMethodsTable()[132]);
+        oPresentEx    = reinterpret_cast<PresentEx>(kiero::getMethodsTable()[121]);
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
 
-        DetourAttach(&(PVOID &) oEndScene, hkEndScene);
-        DetourAttach(&(PVOID &) oReset, hkReset);
+        DetourAttach(&(PVOID &) oPresentEx, hkPresentEx);
+        DetourAttach(&(PVOID &) oResetEx, hkResetEx);
 
         DetourTransactionCommit();
         printf("[Monokuma] Kiero D3D9 Hook initialized\n");
@@ -405,8 +406,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourUpdateThread(GetCurrentThread());
             DetourDetach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourDetach(&(PVOID &) screenPrintFuncReal, println_screen);
-            DetourDetach(&(PVOID &) oEndScene, hkEndScene);
-            DetourDetach(&(PVOID &) oReset, hkReset);
+            DetourDetach(&(PVOID &) oPresentEx, hkPresentEx);
+            DetourDetach(&(PVOID &) oResetEx, hkResetEx);
 
             //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
