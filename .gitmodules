@@ -1,0 +1,3 @@
+[submodule "kiero-d3d9ex-fork"]
+	path = kiero
+	url = https://github.com/breadbyte/kiero.git
