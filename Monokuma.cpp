@@ -193,11 +193,11 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
 
             if ((lobyte & *debugByte) == 0x00) {
                 CurrentDebugMenu = NONE;
-                SetCameraState(UNLOCKED);
+                SetInputState(UNLOCKED);
                 printf("[Monokuma] Debug Menu Closed\n");
             } else {
                 CurrentDebugMenu = DEBUG;
-                SetCameraState(LOCKED);
+                SetInputState(LOCKED);
                 printf("[Monokuma] Debug Menu Opened\n");
             }
 
@@ -210,7 +210,7 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
         // Check if we closed the debug menu in-game so we can set our state.
         if ((lobyte & *debugByte) == 0x00 && CurrentDebugMenu == DEBUG) {
             CurrentDebugMenu = NONE;
-            SetCameraState(UNLOCKED);
+            SetInputState(UNLOCKED);
             printf("[Monokuma] Debug Menu Closed\n");
         }
     }
@@ -307,6 +307,7 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
             debounce = true;
 
             isWantImgui = !isWantImgui;
+            SetInputState(isWantImgui ? LOCKED : UNLOCKED);
         }
         else {
             debounce = false;
