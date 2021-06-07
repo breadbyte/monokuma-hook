@@ -112,35 +112,6 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
         ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
         ImGui::Begin("Utilities", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::BeginTabBar("##UtilitiesTabBar", ImGuiTabBarFlags_Reorderable);
-        if (ImGui::BeginTabItem("VA to A")) {
-            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
-            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
-
-            ImGui::Text("Calculate Virtual Address to Current Address");
-            ImGui::Text("((Base Address + Virtual Address) - EXE Base)");
-            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Enter your VA here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
-
-            // ((Base Addr + VA) - EXE Base) = Target Address
-            _itoa_s(((unsigned int) (BaseAddress + strtol(inputBuffer, NULL, 16) - ExecutableBase)), finalAddr, 16, 16);
-            ImGui::InputText("Target Address", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("A to VA")) {
-            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
-            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
-
-            ImGui::Text("Calculate Virtual Address to Current Address");
-            ImGui::Text("((Virtual Address - Base Address) + EXE Base)");
-            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Enter your Addr here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
-
-            _itoa_s(((unsigned int) ((strtol(inputBuffer, NULL, 16) - BaseAddress) + ExecutableBase)), finalAddr, 16, 16);
-            ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::EndTabItem();
-        }
         if (ImGui::BeginTabItem("State")) {
             switch (CurrentDebugMenu) {
                 case NONE:
@@ -157,6 +128,10 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
                     break;
             }
             ImGui::Text("AVG FPS: %f", ImGui::GetIO().Framerate);
+            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
+            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
+            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
