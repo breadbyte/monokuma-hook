@@ -386,6 +386,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 
             printf("\n\n[Monokuma] Detour detached.\n");
             std::cout << "[Monokuma] So long, bear well!" << std::endl;
+            unpatch_dr1_us_exe();
             FreeConsole();
             break;
 
