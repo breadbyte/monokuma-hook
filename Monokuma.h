@@ -216,17 +216,6 @@ Patch dr1_us_exe = { "dr1_us.exe", {
         PatchAddress{ 439366, 102, 103 },
         PatchAddress{ 439412, 56, 57 },
         PatchAddress{ 439458, 10, 11 },
-        // stderr
-        PatchAddress{ 282789, 7, 0 },
-        PatchAddress{ 282827, 225, 218 },
-        PatchAddress{ 302257, 251, 244 },
-        PatchAddress{ 899763, 249, 242 },
-        PatchAddress{ 902762, 66, 59 },
-        PatchAddress{ 907062, 118, 111 },
-        PatchAddress{ 908411, 49, 42 },
-        PatchAddress{ 927328, 76, 69 },
-        PatchAddress{ 927837, 79, 72 },
-        PatchAddress{ 928784, 156, 149 },
 } };
 void patch_dr1_us_exe() {
     for (PatchAddress addr : dr1_us_exe.Patches) {
