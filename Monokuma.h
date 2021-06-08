@@ -77,8 +77,10 @@ void SetInputState(LOCKSTATE state) {
     switch (state) {
         case LOCKED:
             PatchInt((int*) controllerLock, &zero, 1);
+            break;
         case UNLOCKED:
             PatchInt((int*) controllerLock, &one, 1);
+            break;
     }
 }
 
