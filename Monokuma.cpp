@@ -17,6 +17,7 @@
 #pragma comment(lib, "d3dx9.lib")
 
 int stdoutFuncAddr = ((BaseAddress + 0x130B00) - ExecutableBase);
+int stderrFuncAddr = ((BaseAddress + 0x0435A9) - ExecutableBase);
 int screenFuncAddr = ((BaseAddress + 0x0435B1) - ExecutableBase);
 bool isImguiInit = false;
 bool isWantImgui = false;
@@ -65,8 +66,7 @@ typedef void (*oConsoleStderrPrintFunc)(const char* pattern, ...);
 typedef void (*oScreenPrintFunc)(int xPos, int yPos, const char* buffer);
 
 oConsoleStdoutPrintFunc stdoutPrintFuncReal    = (oConsoleStdoutPrintFunc)  stdoutFuncAddr;
-// todo
-oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((BaseAddress + 0x0435B2) - ExecutableBase);
+oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  stderrFuncAddr;
 oScreenPrintFunc        screenPrintFuncReal    = (oScreenPrintFunc)         screenFuncAddr;
 
 typedef long(__stdcall* ResetEx)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*, D3DDISPLAYMODEEX*);
@@ -369,8 +369,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourUpdateThread(GetCurrentThread());
             DetourAttach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourAttach(&(PVOID &) screenPrintFuncReal, println_screen);
-
-            //DetourAttach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
+            DetourAttach(&(PVOID &) stderrPrintFuncReal, printerr);
             DetourTransactionCommit();
 
             printf("[Monokuma] Detoured.\n");
@@ -384,8 +383,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourDetach(&(PVOID &) screenPrintFuncReal, println_screen);
             DetourDetach(&(PVOID &) oPresentEx, hkPresentEx);
             DetourDetach(&(PVOID &) oResetEx, hkResetEx);
-
-            //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
+            DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr);
             DetourTransactionCommit();
 
             printf("\n\n[Monokuma] Detour detached.\n");
