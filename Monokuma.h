@@ -14,34 +14,15 @@ class ScreenPrintCommandBuffer {
 
 private:
     std::vector<ScreenPrintCommand> pCommandVector;
-    std::vector<ScreenPrintCommand> lockBuffer;
-    std::mutex lock;
 
 public:
     void push(ScreenPrintCommand screenPrintCommand){
-        if (lock.try_lock()) {
-            pCommandVector.push_back(screenPrintCommand);
-            /* pCommandVector.insert(
-                    pCommandVector.end(),
-                    lockBuffer.begin(),
-                    lockBuffer.end()
-                    );
-            */
-            lockBuffer.clear();
-            lock.unlock();
-        }
-        else {
-            // drop command
-            lockBuffer.push_back(screenPrintCommand);
-            printf("[Monokuma] Dropped a print command! Buffer:%i pCmdVt:%i\n",lockBuffer.size() ,pCommandVector.size());
-        }
+        pCommandVector.push_back(screenPrintCommand);
     }
 
     std::vector<ScreenPrintCommand> pull() {
-        lock.lock();
         std::vector<ScreenPrintCommand> retval = pCommandVector;
         pCommandVector.clear();
-        lock.unlock();
         return retval;
     }
 };

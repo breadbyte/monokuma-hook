@@ -75,8 +75,6 @@ typedef long(__stdcall* PresentEx)(LPDIRECT3DDEVICE9EX, const RECT*, const RECT*
 static ResetEx oResetEx = NULL;
 static PresentEx oPresentEx = NULL;
 
-static char inputBuffer[16];
-static char finalAddr[16];
 static char exeBaseStr[16];
 static char baseAddrStr[16];
 
