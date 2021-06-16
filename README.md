@@ -30,7 +30,7 @@ If you've figured out how to fight a dragon, you can [create a pull request](htt
 `F9` forcibly opens the debug menu (for testing purposes).<br>
 `F10` opens the utilities and settings window.<br>
 
-If using a keyboard, `Q` decreases values, `E` increases values. Also makes you extremely dizzy.
+If using a keyboard, `Q` decreases values, `E` increases values. Also makes you extremely dizzy in some cases.
 
 #### Keyboard Control Layout
 `Z` = Cross<br>
