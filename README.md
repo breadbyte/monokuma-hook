@@ -1,38 +1,42 @@
 # MonokumaHook 
-A debug menu hook for DR1.
+A debug menu hook for Danganronpa: Trigger Happy Havoc.
 
-A demo video can be found [here](https://youtu.be/AOiwtQ3sFQ4).
+A demo video can be found [here](https://youtu.be/vbG7M5s6R9w).
 ![](https://cdn.platea.moe/bread/Disloyal-Specific-Ynambu/EFOIZC6gkJ.png)
 
-
-## Why?
+# Why?
 I wanted to figure out what these debug options do, so I did.
 
-Due to compiler optimization and what I assume to be debug preprocessor macros, the debug menu has been replaced with a single function that does nothing. (A single jump to what seems to be a ret function. No idea. See address `435B0` in your local disassembler.)<br>
+Due to compiler optimization and what I assume to be debug preprocessor macros, the debug menu has been replaced with a single function that does nothing. (A single jump to a ret. No idea. See address `435B0` in your local disassembler.)<br>
 
 Because of this, the EXE needs to be patched and hooked during runtime for the debug menu to appear properly.<br>
 
-As a side effect of this, the debug menu might have missing data, crash the game, or do nothing at times.
+As a side effect of this, the debug menu might have missing data, crash the game, or do nothing at times.<sup>Here be dragons!</sup>
+
+I do my best to try and restore most of the functionality as best i can figure out.
+
+If you do find a dragon though, you can [create an issue](https://github.com/Visual-Novel-Decompilation-Project/monokuma-hook/issues) about it, and i'll take a look.
+
+If you've figured out how to fight a dragon, you can [create a pull request](https://github.com/Visual-Novel-Decompilation-Project/monokuma-hook/pulls) instead.
 
 # Prerequisites
 - A controller (optional).
   - Yes, a controller. Anything steam recognizes is fine, as long as it works with the game.
     - Because some debug menu items only accept analog input.
 
-
 # Controls
-F5 opens the debug menu.<br>
-F6 opens the player camera control menu.<br>
-F9 forcibly opens the debug menu (for testing purposes).<br>
-F10 opens the utilities and settings window.<br>
+`F5` opens the debug menu.<br>
+`F6` opens the player camera control menu.<br>
+`F9` forcibly opens the debug menu (for testing purposes).<br>
+`F10` opens the utilities and settings window.<br>
 
-If using a keyboard, Q decreases values, E increases values.
+If using a keyboard, `Q` decreases values, `E` increases values. Also makes you extremely dizzy.
 
 #### Keyboard Control Layout
-Z = Cross<br>
-C = Circle<br>
-X = Square<br>
-V = Triangle<br>
+`Z` = Cross<br>
+`C` = Circle<br>
+`X` = Square<br>
+`V` = Triangle<br>
 
 # Instructions 
 1. Download the Hook.<br>
@@ -45,7 +49,6 @@ V = Triangle<br>
 <a href="https://github.com/DarthTon/Xenos">https://github.com/DarthTon/Xenos</a>
 <summary>Download Xenos from github.</summary>
 <img src="https://cdn.platea.moe/public/msedge_Z1a5UBYfRU.png"/>
-<img src="https://cdn.platea.moe/public/msedge_5G9jEMYhBE.png"/>
 <li>Ask Windows Defender nicely not to delete it.</li>
 <li>Start the game.</li>
 <li>Run Xenos.exe as an administrator.</li>
@@ -81,7 +84,7 @@ V = Triangle<br>
 <img src="https://cdn.platea.moe/bread/Worn-Real-Hoverfly/cheatengine-x86_64-SSE4-AVX2_dOkFzcCPgK.jpg">
 </details>
 
-You can also bring your own DLL Injector of preference, if that's more of your thing.
+- You can also bring your own DLL Injector of preference, if that's more of your thing.
 
 3. Profit!
 
@@ -94,3 +97,6 @@ I use vcpkg for my dependencies. Your setup may vary, but the requirements are:
 
 Go to Kiero.h and change `KIERO_INCLUDE_D3D9EX` to `1`, otherwise the hook will fail.<br>
 You may need to modify `CMakeLists.txt` to accomodate for your own setup for Detours, if you are not using vcpkg.
+
+# License
+This project is licensed under the [Apache License 2.0](https://github.com/Visual-Novel-Decompilation-Project/monokuma-hook/blob/main/LICENSE).
