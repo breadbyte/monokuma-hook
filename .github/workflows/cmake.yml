@@ -26,7 +26,7 @@ jobs:
     - name: Restore artifacts, or setup vcpkg (do not install any package)
       uses: lukka/run-vcpkg@v6
       with:
-        vcpkgArguments: "detours minhook"
+        vcpkgArguments: "detours minhook imgui"
         vcpkgGitCommitId: 6e024e744e7717c06ddacd5089401109c6298553
         vcpkgTriplet: x64-windows
         
