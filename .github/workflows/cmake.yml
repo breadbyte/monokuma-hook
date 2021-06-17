@@ -1,0 +1,39 @@
+name: CMake
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally
+    # well on Windows or Mac.  You can convert this to a matrix build if you need
+    # cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        
+    - name: Restore artifacts, or setup vcpkg (do not install any package)
+      uses: lukka/run-vcpkg@v6
+      with:
+        vcpkgArguments: "detours minhook imgui"
+        vcpkgGitCommitId: 6e024e744e7717c06ddacd5089401109c6298553
+        vcpkgTriplet: x64-windows
+        
+    - name: Build with CMake
+      uses: lukka/run-cmake@main
+      with:
+        useVcpkgToolchainFile: true
+        buildDirectory: ${{github.workspace}}/build
+        cmakeBuildType: Release
+
