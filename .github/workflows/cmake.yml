@@ -26,11 +26,9 @@ jobs:
     - name: Restore artifacts, or setup vcpkg (do not install any package)
       uses: lukka/run-vcpkg@v6
       with:
-        setupOnly: true
-        
-    - run: |
-        $VCPKG_ROOT/vcpkg install minhook detours
-        shell: bash
+        vcpkgArguments: "detours minhook"
+        vcpkgGitCommitId: 6e024e744e7717c06ddacd5089401109c6298553
+        vcpkgTriplet: x64-windows
         
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -40,10 +38,4 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.  
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}}
       
