@@ -61,12 +61,9 @@ void println_screen(int x, int y, const char* buffer) {
 }
 
 typedef void (*oConsoleStdoutPrintFunc)(const char* pattern, ...);
-typedef void (*oConsoleStderrPrintFunc)(const char* pattern, ...);
 typedef void (*oScreenPrintFunc)(int xPos, int yPos, const char* buffer);
 
 oConsoleStdoutPrintFunc stdoutPrintFuncReal    = (oConsoleStdoutPrintFunc)  stdoutFuncAddr;
-// todo
-oConsoleStderrPrintFunc stderrPrintFuncReal    = (oConsoleStderrPrintFunc)  ((BaseAddress + 0x0435B2) - ExecutableBase);
 oScreenPrintFunc        screenPrintFuncReal    = (oScreenPrintFunc)         screenFuncAddr;
 
 typedef long(__stdcall* ResetEx)(LPDIRECT3DDEVICE9, D3DPRESENT_PARAMETERS*, D3DDISPLAYMODEEX*);
@@ -75,8 +72,6 @@ typedef long(__stdcall* PresentEx)(LPDIRECT3DDEVICE9EX, const RECT*, const RECT*
 static ResetEx oResetEx = NULL;
 static PresentEx oPresentEx = NULL;
 
-static char inputBuffer[16];
-static char finalAddr[16];
 static char exeBaseStr[16];
 static char baseAddrStr[16];
 
@@ -112,35 +107,6 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
         ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
         ImGui::Begin("Utilities", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::BeginTabBar("##UtilitiesTabBar", ImGuiTabBarFlags_Reorderable);
-        if (ImGui::BeginTabItem("VA to A")) {
-            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
-            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
-
-            ImGui::Text("Calculate Virtual Address to Current Address");
-            ImGui::Text("((Base Address + Virtual Address) - EXE Base)");
-            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Enter your VA here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
-
-            // ((Base Addr + VA) - EXE Base) = Target Address
-            _itoa_s(((unsigned int) (BaseAddress + strtol(inputBuffer, NULL, 16) - ExecutableBase)), finalAddr, 16, 16);
-            ImGui::InputText("Target Address", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("A to VA")) {
-            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
-            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
-
-            ImGui::Text("Calculate Virtual Address to Current Address");
-            ImGui::Text("((Virtual Address - Base Address) + EXE Base)");
-            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::InputText("Enter your Addr here", inputBuffer, 16, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase);
-
-            _itoa_s(((unsigned int) ((strtol(inputBuffer, NULL, 16) - BaseAddress) + ExecutableBase)), finalAddr, 16, 16);
-            ImGui::InputText("Target VA", finalAddr, 16,  ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
-            ImGui::EndTabItem();
-        }
         if (ImGui::BeginTabItem("State")) {
             switch (CurrentDebugMenu) {
                 case NONE:
@@ -157,6 +123,10 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
                     break;
             }
             ImGui::Text("AVG FPS: %f", ImGui::GetIO().Framerate);
+            _itoa_s(ExecutableBase, exeBaseStr, 16 , 16);
+            _itoa_s(BaseAddress, baseAddrStr, 16, 16);
+            ImGui::InputText("EXE Base", exeBaseStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
+            ImGui::InputText("Base Address", baseAddrStr, 16, ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_CharsUppercase);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -218,11 +188,11 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
 
             if ((lobyte & *debugByte) == 0x00) {
                 CurrentDebugMenu = NONE;
-                SetCameraState(UNLOCKED);
+                SetInputState(UNLOCKED);
                 printf("[Monokuma] Debug Menu Closed\n");
             } else {
                 CurrentDebugMenu = DEBUG;
-                SetCameraState(LOCKED);
+                SetInputState(LOCKED);
                 printf("[Monokuma] Debug Menu Opened\n");
             }
 
@@ -235,7 +205,7 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
         // Check if we closed the debug menu in-game so we can set our state.
         if ((lobyte & *debugByte) == 0x00 && CurrentDebugMenu == DEBUG) {
             CurrentDebugMenu = NONE;
-            SetCameraState(UNLOCKED);
+            SetInputState(UNLOCKED);
             printf("[Monokuma] Debug Menu Closed\n");
         }
     }
@@ -332,6 +302,7 @@ long __stdcall hkPresentEx(LPDIRECT3DDEVICE9EX pDeviceEx, const RECT* pSourceRec
             debounce = true;
 
             isWantImgui = !isWantImgui;
+            SetInputState(isWantImgui ? LOCKED : UNLOCKED);
         }
         else {
             debounce = false;
@@ -393,8 +364,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourUpdateThread(GetCurrentThread());
             DetourAttach(&(PVOID &) stdoutPrintFuncReal, println);
             DetourAttach(&(PVOID &) screenPrintFuncReal, println_screen);
-
-            //DetourAttach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
 
             printf("[Monokuma] Detoured.\n");
@@ -408,12 +377,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
             DetourDetach(&(PVOID &) screenPrintFuncReal, println_screen);
             DetourDetach(&(PVOID &) oPresentEx, hkPresentEx);
             DetourDetach(&(PVOID &) oResetEx, hkResetEx);
-
-            //DetourDetach(&(PVOID &) stderrPrintFuncReal, printerr); // TODO Broken function, outputs garbage.
             DetourTransactionCommit();
 
             printf("\n\n[Monokuma] Detour detached.\n");
             std::cout << "[Monokuma] So long, bear well!" << std::endl;
+            unpatch_dr1_us_exe();
             FreeConsole();
             break;
 
